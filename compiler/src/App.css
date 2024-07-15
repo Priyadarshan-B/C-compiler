@@ -1,0 +1,28 @@
+button{
+    padding: 7px 10px;
+    background-color: rgb(71, 151, 255);
+    border: none;
+    border-radius: 5px;
+    font-weight: 600;
+    font-size: 15px;
+    color: white;
+    margin: 5px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+
+}
+
+table th, table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+    border: 1px solid black;
+}
+
+table th {
+    background-color: #f2f2f2;
+}
