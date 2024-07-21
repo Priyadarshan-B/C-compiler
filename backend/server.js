@@ -26,43 +26,34 @@ db.connect((err) => {
 const testCases = [
     { id: 1, input: '10 20', expectedOutput: '30' },
     { id: 2, input: '-10 20', expectedOutput: '10' },
-    { id: 3, input: '0 0', expectedOutput: '0' },
+    { id: 3, input: '2 0', expectedOutput: '2' },
     { id: 4, input: '100 200', expectedOutput: '300' },
     { id: 5, input: '123 456', expectedOutput: '579' }
 ];
 
 app.post('/submit', (req, res) => {
-    const { studentCode } = req.body;
+    const { studentCode, mainFunction, mainReturnType, funcDeclaration } = req.body;
+    const headers = req.headers['custom-headers'];
     const responses = [];
 
-    const headers = `
-#include <stdio.h>
-    `;
-
-    const mainFunction = (input) => `
-int main() {
-    int a, b;
-    sscanf("${input}", "%d %d", &a, &b);
-    int sum = add(a, b);
-    printf("%d", sum);
-    return 0;
-}
-    `;
-
     testCases.forEach(testCase => {
-        const completeProgram = headers + studentCode + mainFunction(testCase.input);
+        const completeProgram = headers + "\n" +funcDeclaration + "{" + studentCode+"}"+ "\n" +mainReturnType + " main(){"+ mainFunction+"}";
+        console.log(completeProgram)
 
-        const uniqueFilename = uuidv4(); 
+        const uniqueFilename = uuidv4();
         const cFilename = `${uniqueFilename}.c`;
         const exeFilename = `${uniqueFilename}.exe`;
+        const inputFilename = `${uniqueFilename}.txt`;
 
         fs.writeFileSync(cFilename, completeProgram);
+        fs.writeFileSync(inputFilename, testCase.input);
 
         const compileCommand = `gcc ${cFilename} -o ${exeFilename}`;
 
         exec(compileCommand, (error, stdout, stderr) => {
             if (error) {
                 fs.unlinkSync(cFilename);
+                fs.unlinkSync(inputFilename);
                 responses.push({
                     testCase: `TC${testCase.id}`,
                     input: testCase.input,
@@ -72,19 +63,19 @@ int main() {
                 });
 
                 if (responses.length === testCases.length) {
-                    
                     res.send(responses);
                 }
                 return;
             }
 
             const runCommand = process.platform === 'win32'
-                ? `${exeFilename}`
-                : `./${exeFilename}`;
+                ? `${exeFilename} < ${inputFilename}`
+                : `./${exeFilename} < ${inputFilename}`;
 
             exec(runCommand, (runError, runStdout, runStderr) => {
                 fs.unlinkSync(cFilename);
-                fs.unlinkSync(exeFilename); 
+                fs.unlinkSync(exeFilename);
+                fs.unlinkSync(inputFilename);
 
                 if (runError) {
                     responses.push({
