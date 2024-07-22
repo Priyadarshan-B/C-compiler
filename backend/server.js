@@ -31,14 +31,41 @@ const testCases = [
     { id: 5, input: '123 456', expectedOutput: '579' }
 ];
 
+// Function to strip comments from code
+const stripComments = (code) => {
+    return code.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '').trim();
+};
+
 app.post('/submit', (req, res) => {
     const { studentCode, mainFunction, mainReturnType, funcDeclaration } = req.body;
     const headers = req.headers['custom-headers'];
     const responses = [];
 
+    const funcName = funcDeclaration.split('(')[0].trim().split(' ').pop(); // Extract function name
+
+    // Strip comments from main function code
+    const cleanMainFunction = stripComments(mainFunction);
+
+    // Check if the function is called in main function
+    const funcCallRegex = new RegExp(`\\b${funcName}\\b\\s*\\(`);
+
+    if (!funcCallRegex.test(cleanMainFunction)) {
+        // If the function is not called in main, fail all test cases
+        testCases.forEach(testCase => {
+            responses.push({
+                testCase: `TC${testCase.id}`,
+                input: testCase.input,
+                expectedOutput: testCase.expectedOutput,
+                result: `Function '${funcName}' not called in main function`,
+                passed: false
+            });
+        });
+        return res.send(responses);
+    }
+
     testCases.forEach(testCase => {
-        const completeProgram = headers + "\n" +funcDeclaration + "{" + studentCode+"}"+ "\n" +mainReturnType + " main(){"+ mainFunction+"}";
-        console.log(completeProgram)
+        const completeProgram = `${headers}\n${funcDeclaration} {${studentCode}}\n${mainReturnType} main() {${mainFunction}}`;
+        console.log(completeProgram);
 
         const uniqueFilename = uuidv4();
         const cFilename = `${uniqueFilename}.c`;

@@ -6,19 +6,33 @@ import axios from 'axios';
 import './App.css';
 
 const CodeEditor = () => {
-  const [studentCode, setStudentCode] = useState(``);
+  const [studentCode, setStudentCode] = useState('');
   const [headers, setHeaders] = useState('');
   const [output, setOutput] = useState([]);
   const [mainFunction, setMainFunction] = useState('');
   const [loading, setLoading] = useState(false);
   const [mainReturnType, setMainreturnType] = useState('');
   const [funcDeclaration, setFuncDeclaration] = useState('');
+  const [notifications, setNotifications] = useState([]);
 
   const headerEditorRef = useRef(null);
   const studentCodeEditorRef = useRef(null);
   const mainFunctionEditorRef = useRef(null);
 
+  const validateInputs = () => {
+    const newNotifications = [];
+    if (!headers) newNotifications.push('Please include the header files.');
+    if (!funcDeclaration) newNotifications.push('Please provide the function declaration.');
+    if (!studentCode) newNotifications.push('Please write the function implementation.');
+    if (!mainReturnType) newNotifications.push('Please specify the return type of the main function.');
+    if (!mainFunction) newNotifications.push('Please provide the code for the main function.');
+    const funcName = funcDeclaration.split('(')[0].trim().split(' ').pop(); // Get the function name
+    if (mainFunction && !mainFunction.includes(funcName)) newNotifications.push(`The function '${funcName}' is not called in the main function.`);
+    setNotifications(newNotifications);
+  };
+
   const handleSubmit = async () => {
+    validateInputs();
     setLoading(true);
     try {
       const response = await axios.post(
@@ -100,9 +114,16 @@ const CodeEditor = () => {
             {loading ? 'Submitting...' : 'Submit'}
           </button>
         </div>
+        {notifications.length > 0 && (
+          <div style={{ color: 'red', marginBottom: '10px' }}>
+            {notifications.map((notification, index) => (
+              <div key={index}>{notification}</div>
+            ))}
+          </div>
+        )}
         <div style={{padding:"10px 10px 10px 10px", backgroundColor:"#141414", color:"white", fontWeight:"600"}}>
           <div className='header-div' style={{ marginBottom: "10px" }}>
-            <pre>Inlcude header files</pre>
+            <pre>Include header files</pre>
             <AceEditor
               ref={headerEditorRef}
               mode="c_cpp"
