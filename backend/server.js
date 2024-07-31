@@ -1,6 +1,5 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const mysql = require('mysql2');
 const { exec } = require('child_process');
 const cors = require('cors');
 const fs = require('fs');
@@ -10,18 +9,6 @@ const app = express();
 
 app.use(bodyParser.json());
 app.use(cors());
-
-const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: 'root',
-    database: 'programming_test'
-});
-
-db.connect((err) => {
-    if (err) throw err;
-    console.log('Connected to database');
-});
 
 const testCases = [
     { id: 1, input: '10 20', expectedOutput: '30' },
@@ -36,27 +23,74 @@ const stripComments = (code) => {
     return code.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '').trim();
 };
 
+// Function to extract code between function braces
+const getFunctionBody = (code, funcName) => {
+    const regex = new RegExp(`${funcName}\\s*\\([^)]*\\)\\s*{([^}]*)}`);
+    const match = code.match(regex);
+    return match ? match[1].trim() : '';
+};
+
 app.post('/submit', (req, res) => {
-    const { studentCode, mainFunction, mainReturnType, funcDeclaration } = req.body;
-    const headers = req.headers['custom-headers'];
+    const { code } = req.body;
     const responses = [];
 
-    const funcName = funcDeclaration.split('(')[0].trim().split(' ').pop(); // Extract function name
+    // Strip comments from code
+    const cleanCode = stripComments(code);
 
-    // Strip comments from main function code
-    const cleanMainFunction = stripComments(mainFunction);
+    // Check for presence of main function
+    if (!cleanCode.includes('main(')) {
+        responses.push({
+            testCase: 'All',
+            result: 'Missing main function',
+            passed: false
+        });
+        return res.send(responses);
+    }
 
-    // Check if the function is called in main function
-    const funcCallRegex = new RegExp(`\\b${funcName}\\b\\s*\\(`);
+    // Extract function declarations excluding 'main'
+    const funcDeclarations = cleanCode.match(/int\s+\w+\s*\(.*\)\s*{/g);
+    if (!funcDeclarations || funcDeclarations.length === 0) {
+        responses.push({
+            testCase: 'All',
+            result: 'Missing or invalid function declaration',
+            passed: false
+        });
+        return res.send(responses);
+    }
 
-    if (!funcCallRegex.test(cleanMainFunction)) {
-        // If the function is not called in main, fail all test cases
+    // Check each function declaration for a call within the main function
+    const mainFunctionContent = cleanCode.split('main(')[1].split('{')[1].split('}')[0];
+    let functionCalled = false;
+
+    funcDeclarations.forEach(declaration => {
+        const funcName = declaration.split('(')[0].trim().split(' ').pop(); // Extract function name
+        if (funcName !== 'main') {
+            const funcCallRegex = new RegExp(`\\b${funcName}\\b\\s*\\(`);
+            if (funcCallRegex.test(mainFunctionContent)) {
+                functionCalled = true;
+
+                // Check if function body has at least one line of code
+                const functionBody = getFunctionBody(cleanCode, funcName);
+                if (!functionBody) {
+                    responses.push({
+                        testCase: 'All',
+                        result: `Function '${funcName}' is declared but does not contain any code`,
+                        passed: false
+                    });
+                    return res.send(responses);
+                }
+            }
+        }
+    });
+
+    if (!functionCalled) {
+        // If no functions are called in main, fail all test cases
         testCases.forEach(testCase => {
             responses.push({
                 testCase: `TC${testCase.id}`,
                 input: testCase.input,
                 expectedOutput: testCase.expectedOutput,
-                result: `Function '${funcName}' not called in main function`,
+                result: 'No declared functions called in main function',
                 passed: false
             });
         });
@@ -64,15 +98,12 @@ app.post('/submit', (req, res) => {
     }
 
     testCases.forEach(testCase => {
-        const completeProgram = `${headers}\n${funcDeclaration} {${studentCode}}\n${mainReturnType} main() {${mainFunction}}`;
-        console.log(completeProgram);
-
         const uniqueFilename = uuidv4();
         const cFilename = `${uniqueFilename}.c`;
         const exeFilename = `${uniqueFilename}.exe`;
         const inputFilename = `${uniqueFilename}.txt`;
 
-        fs.writeFileSync(cFilename, completeProgram);
+        fs.writeFileSync(cFilename, code);
         fs.writeFileSync(inputFilename, testCase.input);
 
         const compileCommand = `gcc ${cFilename} -o ${exeFilename}`;
