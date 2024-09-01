@@ -6,7 +6,11 @@ import axios from 'axios';
 import './App.css';
 
 const CodeEditor = () => {
-  const [code, setCode] = useState(``);
+  const [functionName, setFunctionName] = useState('');
+  const [args, setArgs] = useState('');
+  const [argTypes, setArgTypes] = useState('');
+  const [mainFunction, setMainFunction] = useState('');
+  const [code, setCode] = useState('');
   const [output, setOutput] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -15,10 +19,13 @@ const CodeEditor = () => {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const response = await axios.post(
-        'http://localhost:5000/submit',
-        { code },
-      );
+      const response = await axios.post('http://localhost:5000/submit', {
+        functionName,
+        args,
+        argTypes,
+        mainFunction,
+        code,
+      });
       setOutput(response.data);
       console.log(response);
     } catch (error) {
@@ -40,18 +47,43 @@ const CodeEditor = () => {
   }, [code]);
 
   return (
-    <div style={{ display: "flex", width: "100%", justifyContent: "space-between", height: "fit-content", backgroundColor: "rgb(220, 222, 224)", padding: "10px", boxSizing: "border-box" }}>
-      <div style={{ width: "48%" }}>
-        <h2>Question</h2>
-        <p>
-          <b>
-            Add 2 numbers
-          </b>
-        </p>
-        <h2>Sample Inputs and Outputs</h2>
-        <p>Input: 10 20<br />Output: 30</p>
-        <p>Input: -10 20<br />Output: 10</p>
-
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', padding: '10px', boxSizing: 'border-box' }}>
+      <div style={{ marginBottom: '10px' }}>
+        <label>Function Name: </label>
+        <input type="text" value={functionName} onChange={(e) => setFunctionName(e.target.value)} />
+      </div>
+      <div style={{ marginBottom: '10px' }}>
+        <label>Number of Arguments: </label>
+        <input type="text" value={args} onChange={(e) => setArgs(e.target.value)} placeholder="e.g., a, b" />
+      </div>
+      <div style={{ marginBottom: '10px' }}>
+        <label>Argument Types: </label>
+        <input type="text" value={argTypes} onChange={(e) => setArgTypes(e.target.value)} placeholder="e.g., int, int" />
+      </div>
+      <div style={{ marginBottom: '10px' }}>
+        <label>Main Function: </label>
+        <textarea value={mainFunction} onChange={(e) => setMainFunction(e.target.value)} rows="4" cols="50"></textarea>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <button onClick={handleSubmit} disabled={loading}>
+          {loading ? 'Submitting...' : 'Submit'}
+        </button>
+      </div>
+      <div style={{ marginTop: '20px' }}>
+        <AceEditor
+          ref={codeEditorRef}
+          mode="c_cpp"
+          theme="twilight"
+          value={code}
+          onChange={(newValue) => setCode(newValue)}
+          name="code_editor"
+          editorProps={{ $blockScrolling: true }}
+          width="100%"
+          fontSize={15}
+          style={{ minHeight: '85vh' }}
+        />
+      </div>
+      <div style={{ marginTop: '20px' }}>
         <table>
           <thead>
             <tr>
@@ -70,27 +102,6 @@ const CodeEditor = () => {
             ))}
           </tbody>
         </table>
-      </div>
-      <div style={{ width: "50%", boxShadow: "rgba(0, 0, 0, 0.24) 0px 3px 8px", padding: "10px", boxSizing: "border-box", height: "fit-content", backgroundColor: "white" }}>
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <button onClick={handleSubmit} disabled={loading}>
-            {loading ? 'Submitting...' : 'Submit'}
-          </button>
-        </div>
-        <div style={{ padding: "10px 10px 10px 10px", backgroundColor: "#141414", color: "white", fontWeight: "600" }}>
-          <AceEditor
-            ref={codeEditorRef}
-            mode="c_cpp"
-            theme="twilight"
-            value={code}
-            onChange={newValue => setCode(newValue)}
-            name="code_editor"
-            editorProps={{ $blockScrolling: true }}
-            width="100%"
-            fontSize={15}
-            style={{ minHeight: '85vh' }}
-          />
-        </div>
       </div>
     </div>
   );
